@@ -2,12 +2,8 @@ name: DevSecOps Pipeline
 
 on:
   push:
-    branches: [ "main" ]
-
-permissions:
-  contents: read
-  security-events: write
-  actions: read
+    branches:
+      - main
 
 jobs:
   devsecops:
@@ -25,7 +21,7 @@ jobs:
         with:
           languages: python
 
-      - name: Run CodeQL Analysis
+      - name: Run CodeQL
         uses: github/codeql-action/analyze@v3
 
       ############################################
@@ -53,4 +49,6 @@ jobs:
           image-ref: devsecops-api
           severity: CRITICAL,HIGH
           exit-code: 1
+
+
 
