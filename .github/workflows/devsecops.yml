@@ -2,23 +2,21 @@ name: DevSecOps Pipeline
 
 on:
   push:
-    branches: ["main"]
-  permissions:
-    contents: read
-    security-events: write
-    actions: read
+    branches:
+      - main
 
 jobs:
   devsecops:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       ############################################
       # 1. Analyse SAST CodeQL
       ############################################
-      - name: Init CodeQL
+      - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: python
@@ -36,7 +34,7 @@ jobs:
         run: bandit -r api --severity-level high
 
       ############################################
-      # 3. Build Docker
+      # 3. Build Docker image
       ############################################
       - name: Build Docker image
         run: docker build -t devsecops-api .
