@@ -1,7 +1,7 @@
 from flask import Flask, request
 import sqlite3
 import subprocess
-import hashlib
+import bcrypt
 import os
 
 app = Flask(__name__)
@@ -52,7 +52,9 @@ def compute():
 @app.route("/hash", methods=["POST"])
 def hash_password():
     pwd = request.json.get("password", "admin")
-    hashed = hashlib.md5(pwd.encode()).hexdigest()
+    #hashed = hashlib.md5(pwd.encode()).hexdigest()
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pwd.encode(), salt)
     return {"md5": hashed}
 
 
