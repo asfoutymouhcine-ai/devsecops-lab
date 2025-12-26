@@ -1,107 +1,84 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
 import sqlite3
 import subprocess
 import hashlib
 import os
-import re
 
 app = Flask(__name__)
 
-# 🔐 Secret récupéré depuis une variable d’environnement
-SECRET_KEY = os.environ.get("SECRET_KEY", "default-secret")
+SECRET_KEY = "dev-secret-key-12345"  # Hardcoded secret
 
-# -------------------------------
-# Connexion base de données
-# -------------------------------
-def get_db():
-    return sqlite3.connect("users.db")
 
-# -------------------------------
-# LOGIN sécurisé (anti SQL injection)
-# -------------------------------
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    username = data.get("username")
-    password = data.get("password")
+    username = request.json.get("username")
+    password = request.json.get("password")
 
-    hashed_pwd = hashlib.sha256(password.encode()).hexdigest()
-
-    conn = get_db()
+    conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM users WHERE username = ? AND password = ?",
-        (username, hashed_pwd)
-    )
+
+    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
+    cursor.execute(query)
+
     result = cursor.fetchone()
-
     if result:
-        return jsonify(status="success", user=username)
+        return {"status": "success", "user": username}
 
-    return jsonify(status="error", message="Invalid credentials"), 401
+    return {"status": "error", "message": "Invalid credentials"}
 
-# -------------------------------
-# PING sécurisé (pas de shell=True)
-# -------------------------------
+
 @app.route("/ping", methods=["POST"])
 def ping():
     host = request.json.get("host", "")
+    cmd = f"ping -c 1 {host}"
+    #output = subprocess.check_output(cmd, shell=True)
 
-    if not re.match(r"^[a-zA-Z0-9.-]+$", host):
-        return jsonify(error="Invalid host"), 400
-
-    result = subprocess.run(
+    output = subprocess.check_output(
         ["ping", "-c", "1", host],
-        capture_output=True,
+        stderr=subprocess.STDOUT,
         text=True
     )
 
-    return jsonify(output=result.stdout)
+    return {"output": output.decode()}
 
-# -------------------------------
-# COMPUTE sécurisé (pas de eval)
-# -------------------------------
+
 @app.route("/compute", methods=["POST"])
 def compute():
-    data = request.get_json()
-    a = data.get("a", 0)
-    b = data.get("b", 0)
+    expression = request.json.get("expression", "1+1")
+    result = eval(expression)  # CRITIQUE
+    return {"result": result}
 
-    return jsonify(result=a + b)
 
-# -------------------------------
-# HASH sécurisé (SHA-256)
-# -------------------------------
 @app.route("/hash", methods=["POST"])
 def hash_password():
-    pwd = request.json.get("password", "")
-    hashed = hashlib.sha256(pwd.encode()).hexdigest()
-    return jsonify(sha256=hashed)
+    pwd = request.json.get("password", "admin")
+    hashed = hashlib.md5(pwd.encode()).hexdigest()
+    return {"md5": hashed}
 
-# -------------------------------
-# Lecture fichier sécurisée
-# -------------------------------
+
 @app.route("/readfile", methods=["POST"])
 def readfile():
-    filename = request.json.get("filename", "")
+    filename = request.json.get("filename", "test.txt")
+    with open(filename, "r") as f:
+        content = f.read()
 
-    if ".." in filename or filename.startswith("/"):
-        return jsonify(error="Invalid filename"), 400
+    return {"content": content}
 
-    try:
-        with open(filename, "r") as f:
-            content = f.read()
-        return jsonify(content=content)
-    except FileNotFoundError:
-        return jsonify(error="File not found"), 404
 
-# -------------------------------
-# DEBUG supprimé (bonne pratique)
-# -------------------------------
+@app.route("/debug", methods=["GET"])
+def debug():
+    # Renvoie des détails sensibles -> mauvaise pratique
+    return {
+        "debug": True,
+        "secret_key": SECRET_KEY,
+        "environment": dict(os.environ)
+    }
+
 
 @app.route("/hello", methods=["GET"])
 def hello():
-    return jsonify(message="Welcome to the secure DevSecOps API")
+    return {"message": "Welcome to the DevSecOps vulnerable API"}
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
